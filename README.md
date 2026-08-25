@@ -17,9 +17,65 @@ Create two sub-agents:
 
 Workflow:
 - First, invoke `gemini_enterprise_admin` to audit the project and output a structured specification of existing engines, data stores, feature flags, and IAM roles.
-- Next, invoke `gcp_terraform_practitioner` with the admin's specification to generate a full, modular Terraform configuration in the workspace directory (versions.tf, provider.tf with user_project_override, variables.tf, terraform.tfvars, apis.tf, datastores.tf, engines.tf, iam.tf, imports.tf with Terraform 1.5+ declarative import blocks, outputs.tf, and README.md).
+- Next, invoke `gcp_terraform_practitioner` with the admin's specification to generate a full, modular Terraform configuration in the workspace directory (versions.tf, backend.tf with GCS remote state, provider.tf with user_project_override, variables.tf, terraform.tfvars, apis.tf, datastores.tf, engines.tf, iam.tf, imports.tf with Terraform 1.5+ declarative import blocks, outputs.tf, and README.md).
 - Ensure all live resources are registered into Terraform so the deployment can be managed declaratively via CLI rather than the GCP Console.
 ```
+
+---
+
+## Terraform Remote State Backend (Cloud Storage)
+
+To avoid storing sensitive Terraform state files locally and to enable team collaboration, configure a Google Cloud Storage (GCS) remote backend before applying configurations.
+
+### 1. Create a GCS Bucket for Terraform State
+
+Run the following `gcloud` commands to create a dedicated, secure Cloud Storage bucket:
+
+```bash
+# Set your environment variables
+export PROJECT_ID="your-gcp-project-id"
+export BUCKET_NAME="${PROJECT_ID}-tfstate"
+export REGION="us-central1"
+
+# Create the storage bucket with Uniform Bucket-Level Access
+gcloud storage buckets create gs://${BUCKET_NAME} \
+  --project=${PROJECT_ID} \
+  --location=${REGION} \
+  --uniform-bucket-level-access
+
+# Enable Object Versioning to retain state history and allow rollback/recovery
+gcloud storage buckets update gs://${BUCKET_NAME} --versioning
+```
+
+### 2. Configure `backend.tf`
+
+In your Terraform directory (e.g., `./GE-setup`), define the GCS backend configuration in `backend.tf` (or within `versions.tf`):
+
+```hcl
+terraform {
+  backend "gcs" {
+    bucket = "YOUR_PROJECT_ID-tfstate"
+    prefix = "gemini-enterprise/state"
+  }
+}
+```
+
+> [!TIP]
+> You can also pass the bucket name dynamically during initialization instead of hardcoding it:
+> `terraform init -backend-config="bucket=${BUCKET_NAME}"`
+
+### 3. Initialize / Migrate State
+
+Initialize Terraform with the remote backend:
+
+```bash
+# For a fresh configuration:
+terraform init
+
+# If migrating from an existing local terraform.tfstate:
+terraform init -migrate-state
+```
+Terraform will automatically transfer existing local state into your Cloud Storage bucket.
 
 ---
 
@@ -79,7 +135,8 @@ Your primary role is to translate business and infrastructure requirements into 
 Capabilities and Responsibilities:
 1. Research latest Terraform provider schema, syntax, and resource definitions using web search and documentation.
 2. Formulate clean Terraform code structure:
-   - versions.tf / provider.tf (including `user_project_override = true` and `billing_project` to avoid quota errors)
+   - versions.tf / backend.tf (GCS remote backend configuration)
+   - provider.tf (including `user_project_override = true` and `billing_project` to avoid quota errors)
    - variables.tf & terraform.tfvars
    - apis.tf (google_project_service)
    - iam.tf (delegated permissions, roles/discoveryengine.*, roles/cloudaicompanion.*)
