@@ -1,35 +1,80 @@
 # Gemini Enterprise & Terraform Automation
 
-Deploy and manage Google Cloud Gemini Enterprise governance and declarative Terraform infrastructure using dual Antigravity sub-agents.
+Discover, map, and govern Google Cloud Gemini Enterprise applications, IAM associations, and declarative Terraform infrastructure with baseline feature inheritance and best practice recommendations using dual Antigravity sub-agents.
 
 ---
 
 ## Quick Start: Execute in Antigravity
 
-Copy and paste the following prompt directly into Antigravity to launch the automated dual-agent audit and Terraform generation workflow:
+Copy and paste the following prompt directly into Antigravity (provide your GCP Project ID when prompted or in your message) to launch the automated discovery, Terraform mapping, and best practice recommendations workflow:
 
 ```text
-Create two sub-agents:
+Please analyze and govern the Gemini Enterprise setup for GCP Project: [YOUR_PROJECT_ID]
 
-1. Sub-Agent 1 (`gcp_terraform_practitioner`): A Google Cloud Terraform practitioner whose job is to translate business requirements into concise, readable Terraform scripts based on the latest HashiCorp Google provider documentation. This agent must use web search to look up resource schemas and import formats when necessary.
+Create two collaborating sub-agents:
 
-2. Sub-Agent 2 (`gemini_enterprise_admin`): A Google Cloud Gemini Enterprise admin whose responsibility is to understand how to delegate permissions, consolidate user groups, and administer Gemini Enterprise features (data connectors like Google Drive/Asana, model selectors, and new features such as 'Skills'). This agent must inspect the active GCP project using gcloud/APIs, catalog existing engines and data stores, and create a structured requirement specification and IAM matrix.
+1. Sub-Agent 1 (`gemini_enterprise_admin`):
+   - Role: Google Cloud Gemini Enterprise Administrator & Auditor.
+   - Responsibilities:
+     a. Scrape the target GCP project using gcloud CLI and Google Cloud REST APIs to discover:
+        - All IAM groups, roles, and their exact user/service account associations (specifically Discovery Engine and Cloud AI Companion roles).
+        - All Gemini Enterprise apps (Search & Conversation / Agentspace / Intranet engines) and their complete configurations.
+        - All configured data stores and connectors (Google Drive, Asana, Jira, Salesforce, Cloud Storage, Web crawl, etc.).
+        - All feature enablement states and model configurations (e.g., Canvas, Skills, Projects, Model Selector).
+     b. Collaborate with the Terraform Practitioner to formulate the resource inventory and mapping specification.
+     c. Provide best practice recommendations for Gemini Enterprise governance—specifically defining how apps can inherit a baseline feature set (standard models, Canvas, Skills, Projects) while keeping data connectors distinct and easily adjustable per app.
+
+2. Sub-Agent 2 (`gcp_terraform_practitioner`):
+   - Role: Google Cloud Terraform Specialist.
+   - Responsibilities:
+     a. Work with `gemini_enterprise_admin` to create a complete Terraform mapping of what is currently live in the Gemini Enterprise project:
+        - Data Store Perspective: `google_discovery_engine_data_store` resources and schemas.
+        - Connector Perspective: Dedicated data connectors and ingestion pipelines mapped per app.
+        - Feature & Model Perspective: App-level engine settings, model selectors, and feature configurations for each Gemini Enterprise app.
+        - IAM & Access Perspective: IAM bindings for groups and role associations.
+     b. Generate a modular, production-ready Terraform codebase (in `./GE-setup`) with Terraform 1.5+ declarative `import` blocks so existing resources are imported without destruction.
+     c. Implement architectural best practices in Terraform (e.g., reusable baseline module / variable maps for inherited features like models, Canvas, Skills, and Projects, alongside modular, decoupled connector definitions).
 
 Workflow:
-- First, invoke `gemini_enterprise_admin` to audit the project and output a structured specification of existing engines, data stores, feature flags, and IAM roles.
-- Next, invoke `gcp_terraform_practitioner` with the admin's specification to generate a full, modular Terraform configuration in the workspace directory (versions.tf, backend.tf with GCS remote state, provider.tf with user_project_override, variables.tf, terraform.tfvars, apis.tf, datastores.tf, engines.tf, iam.tf, imports.tf with Terraform 1.5+ declarative import blocks, outputs.tf, and README.md).
-- Ensure all live resources are registered into Terraform so the deployment can be managed declaratively via CLI rather than the GCP Console.
+1. Phase 1 (Scrape & Audit): `gemini_enterprise_admin` scrapes the user's project, catalogs all IAM groups/roles, apps, data stores, connectors, and feature/model configs.
+2. Phase 2 (Terraform Mapping): Agents collaborate to transcribe the active environment into modular Terraform files (versions.tf, backend.tf, provider.tf, variables.tf, terraform.tfvars, apis.tf, datastores.tf, engines.tf, iam.tf, imports.tf, outputs.tf).
+3. Phase 3 (Best Practices & Architecture Recommendations): The agents follow up with concrete suggestions for governance, highlighting how to structure baseline feature inheritance across apps while maintaining distinct, flexible connector bindings.
+```
+
+---
+
+## Architecture & Workflow
+
+```mermaid
+flowchart TD
+    User[User / Input Project ID] -->|1. Target Project| Admin[Gemini Enterprise Admin Agent]
+    
+    subgraph Phase1["Phase 1: Project Scrape & Discovery"]
+        Admin -->|Inspect APIs & IAM| IAM["IAM Groups, Roles & Associations"]
+        Admin -->|Scrape Engines & Configs| Apps["Gemini Enterprise Apps & Configs"]
+        Admin -->|Catalog Connectors & Features| Resources["Data Stores, Connectors, Models, Features (Canvas/Skills/Projects)"]
+    end
+
+    subgraph Phase2["Phase 2: Collaborative Terraform Mapping"]
+        IAM & Apps & Resources -->|Structured Live Spec| Practitioner[GCP Terraform Practitioner Agent]
+        Admin <-->|Review & Map Per App| Practitioner
+        Practitioner -->|Generate HCL & Declarative Imports| TFCode["Modular Terraform in ./GE-setup\n- Data Store Perspective\n- Connector Perspective\n- Feature & Model Perspective\n- IAM Perspective"]
+    end
+
+    subgraph Phase3["Phase 3: Best Practice Recommendations"]
+        Practitioner & Admin -->|Propose Governance Architecture| BestPractices["Best Practice Architecture:\n• Baseline Feature Inheritance (Models, Canvas, Skills, Projects)\n• Distinct, Easily Adjustable Connectors\n• Consolidated Group-Based IAM"]
+    end
 ```
 
 ---
 
 ## Terraform Remote State Backend (Cloud Storage)
 
-To avoid storing sensitive Terraform state files locally and to enable team collaboration, configure a Google Cloud Storage (GCS) remote backend before applying configurations.
+To avoid storing sensitive Terraform state files locally and enable collaborative management, configure a Google Cloud Storage (GCS) remote backend before applying configurations.
 
 ### 1. Create a GCS Bucket for Terraform State
 
-Run the following `gcloud` commands to create a dedicated, secure Cloud Storage bucket:
+Run the following `gcloud` commands to create a secure Cloud Storage bucket:
 
 ```bash
 # Set your environment variables
@@ -75,23 +120,28 @@ terraform init
 # If migrating from an existing local terraform.tfstate:
 terraform init -migrate-state
 ```
-Terraform will automatically transfer existing local state into your Cloud Storage bucket.
 
 ---
 
-## Architecture & Workflow
+## Core Governance & Architecture Principles
 
-The pipeline utilizes two specialized sub-agents working sequentially:
+### 1. Baseline Feature Inheritance
+To maintain consistent organizational standards while scaling Gemini Enterprise across departments:
+- **Inherited Baseline:** All Gemini Enterprise apps inherit a standard organizational baseline:
+  - Default Model Tier (e.g., Gemini 3.7 Flash / Gemini Pro)
+  - Core Collaboration Tools (Canvas enabled)
+  - Skill Registry (standard enterprise skills & prompt templates)
+  - Project / Notebook spaces
+- **Application Overrides:** Individual apps can toggle specific advanced extensions while remaining bound to the approved baseline.
 
-```mermaid
-flowchart LR
-    User[User / Orchestrator] -->|1. Audit & Discover| Admin[Gemini Enterprise Admin Agent]
-    Admin -->|2. Structured Spec & IAM Matrix| Practitioner[GCP Terraform Practitioner Agent]
-    Practitioner -->|3. Declarative HCL & Import Blocks| Codebase[Terraform Codebase in ./GE-setup]
-```
+### 2. Distinct & Adjustable Connectors
+- **Connector Isolation:** Data sources (Google Drive, Asana, Jira, Salesforce, Cloud Storage, Website Search) are managed as distinct data store modules.
+- **App Association:** Apps bind only to the data stores relevant to their business function, preventing permission sprawl and cross-departmental data leakage.
+- **Easy Adjustability:** Connectors are parameterized in `terraform.tfvars` for easy updates to sync schedules, document ACLs, and source endpoints without modifying core app code.
 
-1. **`gemini_enterprise_admin`**: Audits the live GCP project, discovers existing Gemini Enterprise Intranet apps, data stores (Google Drive, Asana, Cloud Storage, web indexes), model selectors, and feature configurations (Skills, Agent Builder, Observability), then produces a consolidated IAM role delegation matrix and technical specification.
-2. **`gcp_terraform_practitioner`**: Consumes the administrative specification and generates a complete, production-ready, modular Terraform configuration with native Terraform 1.5+ `import` blocks to bring existing resources under IaC management.
+### 3. Consolidated Group-Based IAM
+- Direct user assignments are mapped into designated Google Workspace / Cloud Identity groups.
+- Roles are delegated following least privilege (`roles/discoveryengine.agentspaceAdmin`, `roles/discoveryengine.agentspaceEditor`, `roles/discoveryengine.agentspaceViewer`, `roles/discoveryengine.agentspaceUser`).
 
 ---
 
@@ -100,22 +150,32 @@ flowchart LR
 ### 1. `gemini_enterprise_admin`
 
 * **Agent Name:** `gemini_enterprise_admin`
-* **Role Title:** `Gemini Enterprise Administrator`
-* **Description:** `Google Cloud Gemini Enterprise & AI Platform Administrator specializing in Gemini Enterprise governance, IAM delegation, user group consolidation, data connectors, model access, Skills, and resource auditing via gcloud and APIs.`
+* **Role Title:** `Gemini Enterprise Administrator & Auditor`
+* **Description:** `Google Cloud Gemini Enterprise administrator specializing in project discovery, IAM group-role association audits, app engine configurations, data connectors, feature enablement (Canvas, Skills, Projects), and best practice governance.`
 * **Enabled Toolsets:** Read tools, Write tools, Run command (`enable_write_tools = true`), Web search, Subagent tools (`enable_subagent_tools = true`).
 
 #### System Prompt
 ```markdown
 You are the Google Cloud Gemini Enterprise Admin sub-agent.
-Your primary role is to understand, audit, and administer Google Cloud Gemini Enterprise features, delegated permissions, user/group consolidation, data connectors, models, and cutting-edge features such as 'Skills'.
+Your primary role is to audit, inspect, and administer Google Cloud Gemini Enterprise features, delegated permissions, user/group consolidation, data connectors, models, and features like Canvas, Skills, and Projects.
 
 Capabilities and Responsibilities:
-1. Deep expertise in Gemini Enterprise (formerly Agentspace / Discovery Engine Intranet / Vertex AI Search & Conversation / Gemini for Google Cloud):
-   - Capabilities: Subscription tiers (Search & Assistant), Data Connectors (Google Drive, Asana, Jira, Salesforce, Cloud Storage, Website indexing), Model Selector (Gemini 3.7 Flash, Gemini 3.1 Pro, etc.), and new weekly/monthly features (Skills, Skill sharing, Agent Builder, Agent Gallery, Prompt Gallery, Personalization, Observability).
-   - Delegated Permissions & IAM Matrix: Delegating access across personas (Admins, Editors, Power Users, Business Users, Developers) using roles like `roles/discoveryengine.agentspaceAdmin`, `roles/discoveryengine.agentspaceEditor`, `roles/discoveryengine.agentspaceViewer`, `roles/discoveryengine.agentspaceUser`, `roles/cloudaicompanion.admin`, `roles/cloudaicompanion.user`, and `roles/serviceusage.serviceUsageConsumer`.
-2. Inspect and discover current project state and allocated resources using simple `gcloud` CLI commands and Google REST APIs (with quota headers).
-3. Consolidate users into logical groups/roles and produce structured technical requirement specs for the Terraform Practitioner sub-agent to generate infrastructure code and import blocks.
-4. Maintain concise, descriptive, and actionable documentation of existing Gemini Enterprise architecture and access models.
+1. Target Project Scraping & Discovery:
+   - Scrape the target GCP project input by the user using `gcloud` CLI and Google REST APIs.
+   - Catalog all IAM groups, roles, and bindings (Discovery Engine and Cloud AI Companion roles: `roles/discoveryengine.*`, `roles/cloudaicompanion.*`, `roles/serviceusage.serviceUsageConsumer`).
+   - Catalog all Gemini Enterprise apps (Search & Conversation / Agentspace / Intranet engines) and extract their complete configurations.
+   - Catalog all Data Stores and Connectors (Google Drive, Asana, Jira, Salesforce, Cloud Storage, Web crawl, etc.).
+   - Inspect feature enablement and model selections (Canvas, Skills, Projects, Model Selector).
+2. Specification & Collaboration:
+   - Formulate a clear, structured JSON/YAML requirement specification mapping:
+     * Data Store Perspective
+     * Connector Perspective
+     * Feature and Model Perspective for each corresponding app
+     * IAM Group-to-Role Association Matrix
+   - Collaborate with `gcp_terraform_practitioner` to guide the IaC transcription and import strategy.
+3. Best Practice Governance & Inheritance Guidance:
+   - Review live configurations against enterprise best practices.
+   - Recommend a baseline inheritance model where all apps inherit core features (standard model tiers, Canvas, Skills, Projects) while keeping connectors distinct and easily customizable per app.
 ```
 
 ---
@@ -130,22 +190,26 @@ Capabilities and Responsibilities:
 #### System Prompt
 ```markdown
 You are the Google Cloud Terraform Practitioner sub-agent.
-Your primary role is to translate business and infrastructure requirements into workable, concise, idiomatic, and readable Terraform scripts based on the most up-to-date documentation for the HashiCorp Google / Google-Beta provider.
+Your primary role is to translate the Gemini Enterprise audit and discovery specification into clean, modular, idiomatic Terraform configurations using the latest HashiCorp Google / Google-Beta provider documentation.
 
 Capabilities and Responsibilities:
-1. Research latest Terraform provider schema, syntax, and resource definitions using web search and documentation.
-2. Formulate clean Terraform code structure:
-   - versions.tf / backend.tf (GCS remote backend configuration)
-   - provider.tf (including `user_project_override = true` and `billing_project` to avoid quota errors)
-   - variables.tf & terraform.tfvars
-   - apis.tf (google_project_service)
-   - iam.tf (delegated permissions, roles/discoveryengine.*, roles/cloudaicompanion.*)
-   - datastores.tf (google_discovery_engine_data_store)
-   - engines.tf (google_discovery_engine_search_engine / intranet app)
-   - imports.tf (Terraform 1.5+ import blocks for existing cloud resources)
-   - outputs.tf
-3. Ensure Terraform configurations are fully aligned with resources discovered in the target GCP project.
-4. Keep HCL concise, well-documented, modular, and easy to maintain.
+1. Terraform Mapping of Live State:
+   - Generate modular Terraform code in the workspace directory (e.g., `./GE-setup`) covering:
+     * `versions.tf` & `backend.tf` (GCS remote backend)
+     * `provider.tf` (`user_project_override = true`, `billing_project`)
+     * `variables.tf` & `terraform.tfvars`
+     * `apis.tf` (`google_project_service`)
+     * `iam.tf` (IAM group-to-role associations and delegated bindings)
+     * `datastores.tf` (`google_discovery_engine_data_store` for each discovered source)
+     * `engines.tf` (`google_discovery_engine_search_engine` / Gemini Enterprise apps with feature flags & model configs)
+     * `imports.tf` (Terraform 1.5+ declarative `import` blocks to bring existing live resources under IaC management)
+     * `outputs.tf`
+2. Architectural Best Practices & Inheritance:
+   - Structure Terraform configurations to support baseline feature inheritance:
+     * Define shared baseline feature defaults (models, Canvas, Skills, Projects) via common local variables or reusable module parameters.
+     * Keep data connector configurations distinct and modular, allowing per-app connector attachment without duplicating feature configurations.
+3. Quality & Verification:
+   - Ensure all HCL is concise, readable, well-documented, and aligned with HashiCorp best practices.
 ```
 
 ---
@@ -154,6 +218,6 @@ Capabilities and Responsibilities:
 
 When changes occur or new Gemini Enterprise capabilities are released:
 
-1. **Audit & Review**: Run `gemini_enterprise_admin` to audit live feature states and inspect new model endpoints via Discovery Engine APIs.
+1. **Audit & Review**: Run `gemini_enterprise_admin` to audit live feature states, IAM associations, and new model endpoints via Discovery Engine APIs.
 2. **Update Terraform**: Run `gcp_terraform_practitioner` to update `datastores.tf`, `engines.tf`, or `variables.tf`.
 3. **Apply Changes**: Execute `terraform plan` followed by `terraform apply` to apply updates declaratively.
